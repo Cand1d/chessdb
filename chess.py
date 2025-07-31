@@ -86,6 +86,12 @@ else:
     fig.update_layout(title="No Bullet Games Found", height=500)
 
 # --- GENERATE HTML ---
+if not df.empty:
+    df_table = df.sort_values('Date', ascending=False)
+    table_html = df_table.to_html(index=False)
+else:
+    table_html = '<p>No data available.</p>'
+
 html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -104,7 +110,7 @@ html_content = f"""
     <h1>Bullet Chess Dashboard – Last 2 Months</h1>
     {pio.to_html(fig, full_html=False, include_plotlyjs='cdn')}
     <h3>Daily Summary Table</h3>
-    {df.to_html(index=False) if not df.empty else '<p>No data available.</p>'}
+    {table_html}
 </body>
 </html>
 """
