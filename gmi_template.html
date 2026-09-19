@@ -1216,6 +1216,16 @@ function bindSigma(id, outId, key, fmt, color) {
 }
 
 function init() {
+  // The toggle is built from whatever made it into the payload, so a feed that
+  // failed at build time does not leave a dead button behind.
+  state.asset = D.assets[0].key;
+  var seg = document.querySelector(".seg");
+  seg.innerHTML = D.assets.map(function (x, i) {
+    return '<button type="button" data-asset="' + esc(x.key) + '" aria-pressed="' +
+      (i === 0) + '">' + esc(x.key) + "</button>";
+  }).join("");
+  if (D.assets.length < 2) seg.style.display = "none";
+
   var a = ASSETS[state.asset];
   var lastT = a.hist[a.hist.length - 1].t;
   var startEl = document.getElementById("start");

@@ -6,17 +6,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install requests pandas plotly
-      - run: python chess.py
-      - run: python gmi.py
+      # A failure in one dashboard must not stop the other from publishing, so
+      # both builds run, the commit goes out, and the job is failed afterwards.
+      - id: chess
+        run: python chess.py
+        continue-on-error: true
+      - id: gmi
+        run: python gmi.py
+        continue-on-error: true
       - run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add index.html trading.html
           git commit -m "Update dashboard" || echo "No changes"
           git push
+      - if: steps.chess.outcome == 'failure' || steps.gmi.outcome == 'failure'
+        run: |
+          echo "chess.py: ${{ steps.chess.outcome }}"
+          echo "gmi.py:   ${{ steps.gmi.outcome }}"
+          echo "A dashboard build failed; the published page is stale." >&2
+          exit 1

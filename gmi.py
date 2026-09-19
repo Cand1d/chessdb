@@ -12,6 +12,7 @@ import datetime as dt
 import json
 import math
 import re
+import time
 import urllib.request
 
 # --- CONFIG -------------------------------------------------------------
@@ -29,10 +30,20 @@ def freeze_date(today):
     return dt.date(today.year - 1, 12, 31)
 
 
-def _get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=60) as res:
-        return json.load(res)
+def _get_json(url, attempts=3):
+    """These endpoints are rate-limited and occasionally flaky from CI
+    runners, so back off and retry before giving up on an asset."""
+    for attempt in range(1, attempts + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return json.load(res)
+        except Exception as exc:
+            if attempt == attempts:
+                raise
+            wait = 2 ** attempt
+            print(f"    {type(exc).__name__}: {exc} -- retrying in {wait}s")
+            time.sleep(wait)
 
 
 def fetch_kraken_weekly(pair):
@@ -155,24 +166,25 @@ def main():
     ).timestamp()
     print(f"Building {OUTPUT} -- channel frozen {freeze}")
 
-    assets = [
-        build_asset(
-            "BTC",
-            "Bitcoin",
-            "Kraken XBT/USD weekly close",
-            fetch_kraken_weekly("XBTUSD"),
-            freeze_ts,
-            2,
-        ),
-        build_asset(
-            "QQQ",
-            "Nasdaq 100 ETF",
-            "Yahoo Finance QQQ weekly adjusted close",
-            fetch_yahoo_weekly("QQQ"),
-            freeze_ts,
-            2,
-        ),
+    # One unreachable feed should cost us that asset, not the whole page --
+    # this runs unattended, and a stale trading.html beats a failed build.
+    sources = [
+        ("BTC", "Bitcoin", "Kraken XBT/USD weekly close",
+         lambda: fetch_kraken_weekly("XBTUSD")),
+        ("QQQ", "Nasdaq 100 ETF", "Yahoo Finance QQQ weekly adjusted close",
+         lambda: fetch_yahoo_weekly("QQQ")),
     ]
+    assets, failed = [], []
+    for key, name, blurb, fetch in sources:
+        try:
+            assets.append(build_asset(key, name, blurb, fetch(), freeze_ts, 2))
+        except Exception as exc:
+            failed.append(f"{key} ({type(exc).__name__}: {exc})")
+            print(f"  {key}: SKIPPED -- {exc}")
+    if not assets:
+        raise RuntimeError("no asset could be built: " + "; ".join(failed))
+    if failed:
+        print(f"WARNING: built without {', '.join(failed)}")
 
     payload = {
         "builtAt": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
