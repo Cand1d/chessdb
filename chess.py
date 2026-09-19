@@ -108,6 +108,7 @@ html_content = f"""
 </head>
 <body>
     <h1>Bullet Chess Dashboard – Last 2 Months</h1>
+    <p><a href="trading.html">The GMI Compounding Machine &rarr;</a></p>
     {pio.to_html(fig, full_html=False, include_plotlyjs='cdn')}
     <h3>Daily Summary Table</h3>
     {table_html}
