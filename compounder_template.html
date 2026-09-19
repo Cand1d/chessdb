@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The GMI Compounding Machine</title>
+<title>The Compounding Machine</title>
 <meta name="description" content="A log trend channel strategy for Bitcoin and the Nasdaq 100: weekly signals, fixed-dollar adds at the lows, lifestyle chips at the highs.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -291,16 +291,16 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 <div class="wrap">
 
   <header class="topbar">
-    <div class="wordmark">GMI</div>
+    <div class="wordmark">TCM</div>
     <div class="topbar-right">
-      <span class="ghost-title">Global Macro Investor</span>
+      <span class="ghost-title">Log Trend Channel</span>
       <button class="btn" id="theme-toggle" type="button" aria-label="Toggle dark mode">Theme</button>
     </div>
   </header>
 
   <section class="intro" style="margin-top:0">
     <p class="eyebrow" id="eyebrow">Bitcoin · Log trend strategy</p>
-    <h1>The GMI Compounding Machine</h1>
+    <h1>The Compounding Machine</h1>
     <div class="intro-row">
       <p class="lede" id="lede"></p>
       <div class="seg" role="group" aria-label="Asset">
@@ -452,13 +452,13 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 
 </div>
 <script>
-window.GMI_DATA = __GMI_DATA__;
+window.PAGE_DATA = __PAGE_DATA__;
 </script>
 <script>
 (function () {
 "use strict";
 
-var D = window.GMI_DATA;
+var D = window.PAGE_DATA;
 var WEEK = 604800000, YEAR = 365.25 * 86400 * 1000;
 var FREEZE = Date.parse(D.freeze + "T00:00:00Z");
 var HORIZON = Date.parse(D.horizonEnd + "T00:00:00Z");
@@ -1275,7 +1275,7 @@ function init() {
   var toggle = document.getElementById("theme-toggle");
   function applyTheme(mode) {
     document.documentElement.setAttribute("data-theme", mode);
-    try { localStorage.setItem("gmi-theme", mode); } catch (e) { /* private mode */ }
+    try { localStorage.setItem("tcm-theme", mode); } catch (e) { /* private mode */ }
     document.querySelectorAll("input[type=range]").forEach(function (el) {
       var c = el.id === "initial-range" ? css("--accent")
         : el.id === "add-range" || el.id === "buy-sigma" ? css("--good") : css("--critical");
@@ -1289,7 +1289,7 @@ function init() {
     applyTheme(now === "dark" ? "light" : "dark");
   });
   try {
-    var saved = localStorage.getItem("gmi-theme");
+    var saved = localStorage.getItem("tcm-theme");
     if (saved) document.documentElement.setAttribute("data-theme", saved);
   } catch (e) { /* private mode */ }
 

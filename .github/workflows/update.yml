@@ -19,8 +19,8 @@ jobs:
       - id: chess
         run: python chess.py
         continue-on-error: true
-      - id: gmi
-        run: python gmi.py
+      - id: compounder
+        run: python compounder.py
         continue-on-error: true
       - run: |
           git config user.name github-actions
@@ -28,9 +28,9 @@ jobs:
           git add index.html trading.html
           git commit -m "Update dashboard" || echo "No changes"
           git push
-      - if: steps.chess.outcome == 'failure' || steps.gmi.outcome == 'failure'
+      - if: steps.chess.outcome == 'failure' || steps.compounder.outcome == 'failure'
         run: |
           echo "chess.py: ${{ steps.chess.outcome }}"
-          echo "gmi.py:   ${{ steps.gmi.outcome }}"
+          echo "compounder.py: ${{ steps.compounder.outcome }}"
           echo "A dashboard build failed; the published page is stale." >&2
           exit 1

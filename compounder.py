@@ -1,4 +1,4 @@
-"""Build the GMI Compounding Machine dashboard (trading.html).
+"""Build the Compounding Machine dashboard (trading.html).
 
 Fetches weekly price history for each asset, fits a frozen log-linear trend
 channel, calibrates a mean-reverting model of the residuals, and bakes the
@@ -18,10 +18,10 @@ import urllib.request
 # --- CONFIG -------------------------------------------------------------
 FIT_WINDOW_YEARS = 8  # regression lookback, ending at the freeze date
 HORIZON_END = dt.date(2031, 1, 1)  # how far the channel is drawn forward
-TEMPLATE = "gmi_template.html"
+TEMPLATE = "compounder_template.html"
 OUTPUT = "trading.html"
 SECONDS_PER_YEAR = 365.25 * 86400
-USER_AGENT = "Mozilla/5.0 (compatible; gmi-dashboard/1.0)"
+USER_AGENT = "Mozilla/5.0 (compatible; compounding-machine/1.0)"
 
 
 def freeze_date(today):
@@ -198,13 +198,13 @@ def main():
 
     with open(TEMPLATE, encoding="utf-8") as f:
         template = f.read()
-    if "__GMI_DATA__" not in template:
-        raise RuntimeError(f"{TEMPLATE} is missing the __GMI_DATA__ placeholder")
+    if "__PAGE_DATA__" not in template:
+        raise RuntimeError(f"{TEMPLATE} is missing the __PAGE_DATA__ placeholder")
 
     # json.dumps output is inserted inside a <script> block: neutralise any
     # sequence that could close it early.
     blob = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
-    html = template.replace("__GMI_DATA__", blob)
+    html = template.replace("__PAGE_DATA__", blob)
     html = re.sub(r"__BUILT_AT__", payload["builtAt"], html)
 
     with open(OUTPUT, "w", encoding="utf-8") as f:
