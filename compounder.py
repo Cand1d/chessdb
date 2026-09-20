@@ -17,6 +17,11 @@ import urllib.request
 
 # --- CONFIG -------------------------------------------------------------
 FIT_WINDOW_YEARS = 8  # regression lookback, ending at the freeze date
+# Thresholds past which the channel stops being a fair description of an
+# asset; the page says so rather than quietly presenting a fitted number.
+MIN_TRUSTED_SPAN_YEARS = 5.0
+MAX_TRUSTED_SIGNAL = 3.0
+MAX_TRUSTED_SIGMA = 1.0  # 1 sigma above +100%
 HORIZON_END = dt.date(2031, 1, 1)  # how far the channel is drawn forward
 TEMPLATE = "compounder_template.html"
 OUTPUT = "trading.html"
@@ -128,23 +133,61 @@ def fit_channel(series, freeze_ts, window_years):
     }
 
 
-def build_asset(key, name, blurb, series, freeze_ts, price_decimals):
+def price_decimals(price):
+    """Enough significant digits for the asset's price scale: a sub-dollar
+    token rounded to cents loses most of its information."""
+    if price >= 100:
+        return 2
+    if price >= 1:
+        return 4
+    return 6
+
+
+def reliability(key, channel, span_years, signal_now):
+    """The channel is a long extrapolation from a short fit. Say out loud
+    when the asset does not support one, rather than printing a fair value
+    that looks as authoritative as Bitcoin's."""
+    caveats = []
+    if span_years < MIN_TRUSTED_SPAN_YEARS:
+        caveats.append(
+            f"only {span_years:.1f} years of history to fit on, and the channel "
+            f"is drawn years past that"
+        )
+    if abs(signal_now) > MAX_TRUSTED_SIGNAL:
+        caveats.append(
+            f"price is {signal_now:+.1f}\u03c3 from the fitted trend, so the "
+            f"channel is not describing this asset right now"
+        )
+    one_sigma = math.exp(channel["sigma"]) - 1
+    if one_sigma > MAX_TRUSTED_SIGMA:
+        caveats.append(
+            f"1\u03c3 is +{one_sigma * 100:.0f}%, a band too wide to time "
+            f"entries with"
+        )
+    return caveats
+
+
+def build_asset(key, name, blurb, series, freeze_ts):
     channel = fit_channel(series, freeze_ts, FIT_WINDOW_YEARS)
-    history = [[t, round(p, price_decimals)] for t, p in series]
     last_t, last_p = series[-1]
+    decimals = price_decimals(last_p)
+    history = [[t, round(p, decimals)] for t, p in series]
     trend_now = channel["anchor"] * (1 + channel["cagr"]) ** (
         (last_t - freeze_ts) / SECONDS_PER_YEAR
     )
+    signal_now = math.log(last_p / trend_now) / channel["sigma"]
+    span_years = (freeze_ts - channel["fitStart"]) / SECONDS_PER_YEAR
+
     # Recomputed from the rounded values actually shipped to the browser.
     shocks = channel["innovations"]
     var_e = sum(v * v for v in shocks) / len(shocks)
     spread = math.sqrt(var_e / (1 - channel["phi"] ** 2))
     drift_ratio = spread / channel["sigma"]
     print(
-        f"  {key}: {len(history)} weeks, CAGR {channel['cagr'] * 100:.1f}%, "
+        f"  {key}: {len(history)} weeks, fit span {span_years:.1f}y, "
+        f"CAGR {channel['cagr'] * 100:.1f}%, "
         f"1sigma +{(math.exp(channel['sigma']) - 1) * 100:.0f}%, "
-        f"last {last_p:,.2f} vs trend {trend_now:,.2f} "
-        f"({math.log(last_p / trend_now) / channel['sigma']:+.2f} sigma)"
+        f"last {last_p:,.4f} vs trend {trend_now:,.4f} ({signal_now:+.2f} sigma)"
     )
     print(
         f"     AR(1) phi={channel['phi']:.4f}, half-life "
@@ -155,8 +198,20 @@ def build_asset(key, name, blurb, series, freeze_ts, price_decimals):
         raise RuntimeError(
             f"{key}: forward model spread is {drift_ratio:.2f}x the fitted sigma"
         )
-    return {"key": key, "name": name, "blurb": blurb, "history": history, **channel}
 
+    caveats = reliability(key, channel, span_years, signal_now)
+    for c in caveats:
+        print(f"     CAVEAT: {c}")
+
+    return {
+        "key": key,
+        "name": name,
+        "blurb": blurb,
+        "history": history,
+        "fitSpanYears": span_years,
+        "caveats": caveats,
+        **channel,
+    }
 
 def main():
     today = dt.datetime.now(dt.timezone.utc).date()
@@ -171,13 +226,20 @@ def main():
     sources = [
         ("BTC", "Bitcoin", "Kraken XBT/USD weekly close",
          lambda: fetch_kraken_weekly("XBTUSD")),
+        ("SOL", "Solana", "Kraken SOL/USD weekly close",
+         lambda: fetch_kraken_weekly("SOLUSD")),
+        ("SUI", "Sui", "Kraken SUI/USD weekly close",
+         lambda: fetch_kraken_weekly("SUIUSD")),
+        ("MSTR", "Strategy (MicroStrategy)",
+         "Yahoo Finance MSTR weekly adjusted close",
+         lambda: fetch_yahoo_weekly("MSTR")),
         ("QQQ", "Nasdaq 100 ETF", "Yahoo Finance QQQ weekly adjusted close",
          lambda: fetch_yahoo_weekly("QQQ")),
     ]
     assets, failed = [], []
     for key, name, blurb, fetch in sources:
         try:
-            assets.append(build_asset(key, name, blurb, fetch(), freeze_ts, 2))
+            assets.append(build_asset(key, name, blurb, fetch(), freeze_ts))
         except Exception as exc:
             failed.append(f"{key} ({type(exc).__name__}: {exc})")
             print(f"  {key}: SKIPPED -- {exc}")

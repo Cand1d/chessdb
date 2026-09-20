@@ -31,6 +31,9 @@
   --fan:           rgba(22, 39, 63, 0.10);
   --hero-from:     #e9c7f2;
   --hero-to:       #fcf6fb;
+  --warn-bg:       #fdf6e6;
+  --warn-border:   #efd9a3;
+  --warn-ink:      #8a5a00;
   --shadow:        0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .045);
 }
 @media (prefers-color-scheme: dark) {
@@ -56,7 +59,10 @@
     --fan:           rgba(226, 232, 240, 0.10);
     --hero-from:     #3b2350;
     --hero-to:       #191a22;
-    --shadow:        0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
+    --warn-bg:       #2a2312;
+  --warn-border:   #57441f;
+  --warn-ink:      #e8b54a;
+  --shadow:        0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
   }
 }
 :root[data-theme="dark"] {
@@ -81,6 +87,9 @@
   --fan:           rgba(226, 232, 240, 0.10);
   --hero-from:     #3b2350;
   --hero-to:       #191a22;
+  --warn-bg:       #2a2312;
+  --warn-border:   #57441f;
+  --warn-ink:      #e8b54a;
   --shadow:        0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
 }
 
@@ -170,6 +179,16 @@ h1 { font-size: clamp(34px, 6vw, 54px); line-height: 1.05; margin: 0 0 16px; fon
 :root[data-theme="dark"] .chip { background: rgba(255,255,255,.10); }
 :root[data-theme="dark"] .chip.buy { color: #4cc94c; }
 :root[data-theme="dark"] .chip.sell { color: #f07272; }
+
+.caveat {
+  margin-top: 14px; padding: 13px 16px; border-radius: 10px;
+  border: 1px solid var(--warn-border); background: var(--warn-bg);
+  font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.65;
+  color: var(--text-secondary);
+}
+.caveat b { color: var(--warn-ink); }
+.seg { flex-wrap: wrap; }
+@media (max-width: 560px) { .seg button { padding: 8px 12px; font-size: 12px; } }
 
 /* ---------- sections ---------- */
 section { margin-top: 56px; }
@@ -331,6 +350,7 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
         <div><span class="chip" id="h-chip">Neutral</span></div>
       </div>
     </div>
+    <div class="caveat" id="caveat" role="note" hidden></div>
   </section>
 
   <section>
@@ -509,7 +529,9 @@ function simulate(a, seed) {
   }
   var z0 = Math.log(last.p / trendAt(a, last.t));
   var innov = a.innovations, m = innov.length, rnd = mulberry32(seed);
-  var lim = CLAMP * a.sigma;
+  // An asset can already sit outside the clamp -- SUI is -4.4 sigma today --
+  // and snapping z back on the first step would teleport the price.
+  var lim = Math.max(CLAMP * a.sigma, Math.abs(z0) + 0.5 * a.sigma);
   var paths = new Array(N_PATHS);
   for (var k = 0; k < N_PATHS; k++) {
     var row = new Array(steps), z = z0;
@@ -584,17 +606,32 @@ function runStrategy(a, times, prices, cfg, startIdx, keepSeries) {
 
 /* ------------------------------------------------------------ formatting -- */
 
+function trimZeros(s) { return s.indexOf(".") < 0 ? s : s.replace(/\.?0+$/, ""); }
 function money(v) {
   var x = Math.abs(v);
   if (x >= 1e9) return "$" + (v / 1e9).toFixed(1) + "B";
   if (x >= 1e6) return "$" + (v / 1e6).toFixed(x >= 1e7 ? 0 : 1) + "M";
   if (x >= 1e3) return "$" + Math.round(v / 1e3) + "K";
-  return "$" + v.toFixed(0);
+  if (x >= 100 || x === 0) return "$" + v.toFixed(0);
+  // A sub-dollar token rounded to the nearest dollar reads as "$1" or "$0".
+  return "$" + trimZeros(v.toFixed(x >= 1 ? 2 : 4));
 }
-function moneyFull(v) { return "$" + Math.round(v).toLocaleString("en-US"); }
+function moneyFull(v) {
+  var x = Math.abs(v), d = x >= 100 ? 0 : x >= 1 ? 2 : 4;
+  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function unitStr(n, price) {
+  var d = price >= 1000 ? 4 : price >= 10 ? 2 : 0;
+  return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
 function commas(v) { return Math.round(v).toLocaleString("en-US"); }
 function pct(v, d) { return (v >= 0 ? "+" : "") + (v * 100).toFixed(d === undefined ? 0 : d) + "%"; }
 function sig(v) { return (v >= 0 ? "+" : "") + v.toFixed(1) + "σ"; }
+function spanLabel(a) {
+  // The window is FIT_WINDOW_YEARS wide, but a young asset only fills part of
+  // it -- saying "8 years" for a token with 2.7 would be a plain untruth.
+  return trimZeros(a.fitSpanYears.toFixed(1));
+}
 function sigLabel(v) {
   var s = String(Math.round(v * 10) / 10);
   return s.replace(/\.0$/, "") + "σ";
@@ -1043,7 +1080,7 @@ function renderHero(v) {
   var a = v.a, last = a.hist[a.hist.length - 1];
   var tr = trendAt(a, last.t), s = Math.log(last.p / tr) / a.sigma;
   document.getElementById("eyebrow").textContent =
-    (a.key === "BTC" ? "Bitcoin" : "Nasdaq 100") + " · Log trend strategy";
+    a.name + " · Log trend strategy";
   document.getElementById("h-price-label").textContent = a.key + " price";
   document.getElementById("h-price").textContent = money(last.p);
   document.getElementById("h-price-note").textContent = day(last.t);
@@ -1060,10 +1097,24 @@ function renderHero(v) {
 
   document.getElementById("lede").innerHTML =
     "Channel " + esc(D.channelVersion) + " · regression frozen " + esc(D.freeze) +
-    " on " + D.fitWindowYears + " years of weekly closes, rolls each January (next: " + esc(D.nextRoll) + ")" +
+    " on " + spanLabel(a) + " years of weekly closes, rolls each January (next: " + esc(D.nextRoll) + ")" +
     " — <b>" + pct(a.cagr) + " CAGR</b>, 1σ = <b>" + pct(Math.exp(a.sigma) - 1) + "</b>." +
     " Weekly signals, fixed-dollar adds at the lows. The channel runs to " +
     new Date(HORIZON).getUTCFullYear() + " to show the band of possible prices — not a forecast.";
+
+  var cav = document.getElementById("caveat");
+  if (a.caveats && a.caveats.length) {
+    cav.hidden = false;
+    cav.innerHTML = "<b>Read this channel with care \u2014 " + esc(a.key) +
+      " does not support it well.</b> " +
+      a.caveats.map(function (c) { return esc(c); }).join("; ") +
+      ". The plan below still applies the rules exactly, but every outcome " +
+      "figure assumes the price returns to this trend \u2014 so read them as a " +
+      "property of the fit, not as a projection.";
+  } else {
+    cav.hidden = true;
+    cav.innerHTML = "";
+  }
 
   document.getElementById("channel-note").textContent =
     a.blurb + " · log scale · mean reversion half-life " +
@@ -1121,7 +1172,7 @@ function renderTables(v) {
     return "<tr><td>" + day(t.t) + "</td>" +
       '<td><span class="pill ' + t.kind + '">' + (t.kind === "buy" ? "ADD" : "CHIP") + "</span></td>" +
       "<td>" + sig(t.sigma) + "</td><td>" + moneyFull(t.price) + "</td>" +
-      "<td>" + (t.kind === "buy" ? "+" : "−") + t.units.toFixed(a.key === "BTC" ? 4 : 2) + "</td>" +
+      "<td>" + (t.kind === "buy" ? "+" : "−") + unitStr(t.units, t.price) + "</td>" +
       "<td>" + moneyFull(t.cash) + "</td>" +
       "<td>" + (t.kind === "buy" ? (t.fromSells > 0 ? moneyFull(t.fromSells) + " from chips" : "new money") : "to cash") + "</td></tr>";
   }).join("");
@@ -1150,7 +1201,7 @@ function renderMethod(v) {
   var a = v.a;
   document.getElementById("method").innerHTML =
     "The channel is an ordinary least-squares fit of <code>ln(price)</code> on time over the " +
-    D.fitWindowYears + " years of weekly closes ending " + esc(D.freeze) + " — " + a.fitPoints +
+    spanLabel(a) + " years of weekly closes ending " + esc(D.freeze) + " — " + a.fitPoints +
     " points for " + esc(a.key) + ". It yields a trend of <b>" + pct(a.cagr) + " a year</b> with a residual " +
     "standard deviation of <b>" + a.sigma.toFixed(3) + " log units</b> (a 1σ move is " +
     pct(Math.exp(a.sigma) - 1) + " above trend, " + pct(Math.exp(-a.sigma) - 1) + " below). " +
