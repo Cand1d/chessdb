@@ -15,6 +15,8 @@ import re
 import time
 import urllib.request
 
+import diagnostics
+
 # --- CONFIG -------------------------------------------------------------
 FIT_WINDOW_YEARS = 8  # regression lookback, ending at the freeze date
 # Thresholds past which the channel stops being a fair description of an
@@ -199,9 +201,35 @@ def build_asset(key, name, blurb, series, freeze_ts):
             f"{key}: forward model spread is {drift_ratio:.2f}x the fitted sigma"
         )
 
-    caveats = reliability(key, channel, span_years, signal_now)
-    for c in caveats:
-        print(f"     CAVEAT: {c}")
+    snapshot = reliability(key, channel, span_years, signal_now)
+
+    # Is the trend the strategy is measured against still standing?
+    duration = diagnostics.duration_test(channel, series, freeze_ts)
+    record = diagnostics.rollover_record(
+        series, freeze_ts, fit_channel, FIT_WINDOW_YEARS
+    )
+    conditional = diagnostics.conditional_outcomes(
+        series, freeze_ts, fit_channel, FIT_WINDOW_YEARS
+    )
+    hold12m = diagnostics.hold_probability(channel, signal_now)
+    call = diagnostics.verdict(duration, record, span_years, snapshot)
+
+    print(f"     VERDICT {call['level'].upper()}: {call['headline']}")
+    for r in call["reasons"]:
+        print(f"       - {r}")
+    if duration["weeks"]:
+        print(
+            f"     below {duration['threshold']:g}sigma for {duration['weeks']}w; "
+            f"model median {duration['simMedian']}w, p90 {duration['simP90']}w, "
+            f"longest of {duration['simCount']:,} {duration['simLongest']}w, "
+            f"p={duration['pValue'] * 100:.3f}%"
+        )
+    if record["years"]:
+        print(
+            f"     out of sample: held {record['held']}/{record['years']} years, "
+            f"coverage {record['cover1'] * 100:.0f}%/{record['cover2'] * 100:.0f}% "
+            f"vs 68%/95%; P(inside +-2sigma next 12m) = {hold12m * 100:.0f}%"
+        )
 
     return {
         "key": key,
@@ -209,7 +237,11 @@ def build_asset(key, name, blurb, series, freeze_ts):
         "blurb": blurb,
         "history": history,
         "fitSpanYears": span_years,
-        "caveats": caveats,
+        "verdict": call,
+        "duration": duration,
+        "record": record,
+        "conditional": conditional,
+        "hold12m": hold12m,
         **channel,
     }
 

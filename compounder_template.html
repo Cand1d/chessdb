@@ -34,6 +34,9 @@
   --warn-bg:       #fdf6e6;
   --warn-border:   #efd9a3;
   --warn-ink:      #8a5a00;
+  --bad-bg:        #fcecec;
+  --bad-border:    #edbdbd;
+  --bad-ink:       #9c2222;
   --shadow:        0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .045);
 }
 @media (prefers-color-scheme: dark) {
@@ -62,6 +65,9 @@
     --warn-bg:       #2a2312;
   --warn-border:   #57441f;
   --warn-ink:      #e8b54a;
+  --bad-bg:        #2c1618;
+  --bad-border:    #5d2b2b;
+  --bad-ink:       #f08a8a;
   --shadow:        0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
   }
 }
@@ -90,6 +96,9 @@
   --warn-bg:       #2a2312;
   --warn-border:   #57441f;
   --warn-ink:      #e8b54a;
+  --bad-bg:        #2c1618;
+  --bad-border:    #5d2b2b;
+  --bad-ink:       #f08a8a;
   --shadow:        0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
 }
 
@@ -189,6 +198,47 @@ h1 { font-size: clamp(34px, 6vw, 54px); line-height: 1.05; margin: 0 0 16px; fon
 .caveat b { color: var(--warn-ink); }
 .seg { flex-wrap: wrap; }
 @media (max-width: 560px) { .seg button { padding: 8px 12px; font-size: 12px; } }
+
+.nocaps { text-transform: none; }
+.caveat.level-falsified { border-color: var(--bad-border); background: var(--bad-bg); }
+.caveat.level-falsified b { color: var(--bad-ink); }
+
+.verdict-card { padding: 24px 26px; }
+.verdict-head { display: flex; gap: 16px; align-items: flex-start; }
+.verdict-chip {
+  flex: none; font-family: "JetBrains Mono", monospace; font-size: 11px;
+  letter-spacing: .14em; text-transform: uppercase; padding: 6px 13px;
+  border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.verdict-chip.intact { background: rgba(12,163,12,.13); color: #0a7c0a; border-color: rgba(12,163,12,.3); }
+.verdict-chip.caution { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-border); }
+.verdict-chip.falsified { background: var(--bad-bg); color: var(--bad-ink); border-color: var(--bad-border); }
+:root[data-theme="dark"] .verdict-chip.intact { color: #4cc94c; }
+.verdict-headline { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.verdict-reasons {
+  margin: 8px 0 0; padding-left: 18px; font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px; line-height: 1.7; color: var(--text-secondary);
+}
+.vstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 24px;
+          background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+@media (max-width: 720px) { .vstats { grid-template-columns: 1fr; } }
+.vstat { background: var(--surface); padding: 18px 20px; }
+.vstat-value { font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.vstat-sub { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.6; }
+.bars { margin-top: 24px; }
+.bar-row { display: grid; grid-template-columns: 190px 1fr 62px; align-items: center; gap: 12px; margin-bottom: 7px;
+           font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--text-secondary); }
+@media (max-width: 620px) { .bar-row { grid-template-columns: 130px 1fr 52px; font-size: 11px; } }
+.bar-track { display: block; height: 10px; border-radius: 3px; background: var(--surface-sunk); overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 3px; }
+.bar-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.years { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
+.yr { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 11px; text-align: center;
+      font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-secondary); min-width: 62px; }
+.yr b { display: block; font-size: 12.5px; color: var(--text-primary); font-weight: 500; }
+.yr.held { background: rgba(12,163,12,.09); border-color: rgba(12,163,12,.3); }
+.yr.broke { background: rgba(208,59,59,.09); border-color: rgba(208,59,59,.3); }
+.yr.partial { opacity: .72; border-style: dashed; }
 
 /* ---------- sections ---------- */
 section { margin-top: 56px; }
@@ -405,7 +455,30 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 
   <section>
     <div class="sec-head">
-      <div><span class="sec-num">02</span><h2>The Channel</h2></div>
+      <div><span class="sec-num">02</span><h2>Does The Model Still Hold?</h2></div>
+      <span class="sec-note">the prior question — is the trend still there to revert to</span>
+    </div>
+    <div class="card verdict-card">
+      <div class="verdict-head">
+        <span class="verdict-chip" id="v-chip">—</span>
+        <div>
+          <div class="verdict-headline" id="v-headline"></div>
+          <ul class="verdict-reasons" id="v-reasons"></ul>
+        </div>
+      </div>
+      <div class="vstats" id="v-stats"></div>
+      <div class="bars" id="v-bars"></div>
+      <div class="years" id="v-years"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <div class="sec-note" style="padding:18px 20px 4px" id="cond-note"></div>
+      <div class="table-scroll"><table id="table-conditional"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div><span class="sec-num">03</span><h2>The Channel</h2></div>
       <span class="sec-note" id="channel-note"></span>
     </div>
     <div class="card chart-card">
@@ -420,7 +493,7 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 
   <section>
     <div class="sec-head">
-      <div><span class="sec-num">03</span><h2>What It Compounds Into</h2></div>
+      <div><span class="sec-num">04</span><h2>What It Compounds Into</h2></div>
       <span class="sec-note">portfolio value on the path above — log scale</span>
     </div>
     <div class="card chart-card">
@@ -431,7 +504,7 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 
   <section>
     <div class="sec-head">
-      <div><span class="sec-num">04</span><h2>The Signal</h2></div>
+      <div><span class="sec-num">05</span><h2>The Signal</h2></div>
       <span class="sec-note">standard deviations from the log trend</span>
     </div>
     <div class="card chart-card">
@@ -442,7 +515,7 @@ footer code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 
 
   <section>
     <div class="sec-head">
-      <div><span class="sec-num">05</span><h2>Trade Log</h2></div>
+      <div><span class="sec-num">06</span><h2>Trade Log</h2></div>
       <span class="sec-note" id="log-note"></span>
     </div>
     <div class="card">
@@ -1102,17 +1175,18 @@ function renderHero(v) {
     " Weekly signals, fixed-dollar adds at the lows. The channel runs to " +
     new Date(HORIZON).getUTCFullYear() + " to show the band of possible prices — not a forecast.";
 
-  var cav = document.getElementById("caveat");
-  if (a.caveats && a.caveats.length) {
+  var cav = document.getElementById("caveat"), vd = a.verdict;
+  if (vd && vd.level !== "intact") {
     cav.hidden = false;
-    cav.innerHTML = "<b>Read this channel with care \u2014 " + esc(a.key) +
-      " does not support it well.</b> " +
-      a.caveats.map(function (c) { return esc(c); }).join("; ") +
-      ". The plan below still applies the rules exactly, but every outcome " +
-      "figure assumes the price returns to this trend \u2014 so read them as a " +
-      "property of the fit, not as a projection.";
+    cav.className = "caveat level-" + vd.level;
+    cav.innerHTML = "<b>" + esc(vd.headline) + " \u2014 " + esc(a.key) + ".</b> " +
+      vd.reasons.map(function (r) { return esc(r); }).join("; ") +
+      ". The plan below still applies the rules exactly, but every outcome figure " +
+      "assumes the price returns to this trend \u2014 so read them as a property of " +
+      "the fit, not as a projection. Section 02 has the evidence.";
   } else {
     cav.hidden = true;
+    cav.className = "caveat";
     cav.innerHTML = "";
   }
 
@@ -1211,6 +1285,96 @@ function renderMethod(v) {
     (a.halfLifeYears ? " — a half-life of " + a.halfLifeYears.toFixed(1) + " years" : "") + ".";
 }
 
+// text-transform: uppercase turns sigma into Sigma, which is a different
+// symbol entirely; keep the glyph out of the transform.
+function capsSafe(s) {
+  return esc(s).replace(/\u03C3/g, '<span class="nocaps">\u03C3</span>');
+}
+
+function binLabel(b) {
+  if (b.lo <= -99) return "below \u22123\u03C3";
+  if (b.hi >= 99) return "+" + b.lo + "\u03C3 and above";
+  var f = function (x) { return (x > 0 ? "+" : x < 0 ? "\u2212" : "") + Math.abs(x) + "\u03C3"; };
+  return f(b.lo) + " to " + f(b.hi);
+}
+
+function renderVerdict(v) {
+  var a = v.a, vd = a.verdict, d = a.duration, rec = a.record;
+  var chip = document.getElementById("v-chip");
+  chip.textContent = vd.level;
+  chip.className = "verdict-chip " + vd.level;
+  document.getElementById("v-headline").textContent = vd.headline;
+  document.getElementById("v-reasons").innerHTML =
+    vd.reasons.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("");
+
+  var stats = [];
+  stats.push(d.weeks
+    ? { value: d.weeks + " weeks", label: "Unbroken run below " + d.threshold + "\u03C3",
+        sub: "below " + d.threshold + "\u03C3 \u00B7 the fitted reversion runs a median of " +
+             d.simMedian + "w, and " + (d.pValue < 0.0001 ? "never lasted this long in "
+             : "lasted this long in " + d.atLeast + " of ") + d.simCount.toLocaleString("en-US") +
+             " simulated excursions" }
+    : { value: "inside", label: "Unbroken run below trend",
+        sub: "the price is within 1\u03C3 of trend right now" });
+  stats.push(rec.years
+    ? { value: rec.held + " of " + rec.years, label: "Years the channel held",
+        sub: "frozen each January, judged on the year after \u00B7 the price sat inside \u00B12\u03C3 " +
+             Math.round(rec.cover2 * 100) + "% of weeks, against the 95% the band claims" }
+    : { value: "\u2014", label: "Years the channel held",
+        sub: "too little history for an out-of-sample test" });
+  stats.push({ value: Math.round(a.hold12m * 100) + "%", label: "Stays inside \u00B12\u03C3, next 12m",
+               sub: "model-implied, from where the price sits today" });
+  document.getElementById("v-stats").innerHTML = stats.map(function (t) {
+    return '<div class="vstat"><div class="label">' + capsSafe(t.label) + "</div>" +
+      '<div class="vstat-value">' + esc(t.value) + "</div>" +
+      '<div class="vstat-sub">' + esc(t.sub) + "</div></div>";
+  }).join("");
+
+  // How long the price has been out, against how long the model allows.
+  var bars = document.getElementById("v-bars");
+  if (d.weeks && d.simCount) {
+    var crit = css("--critical"), muted = css("--text-muted");
+    var rows = [
+      { k: "Actual, so far", v: d.weeks, c: vd.level === "falsified" ? crit : css("--accent") },
+      { k: "Model median", v: d.simMedian, c: muted },
+      { k: "Model 90th percentile", v: d.simP90, c: muted },
+      { k: "Longest of " + d.simCount.toLocaleString("en-US"), v: d.simLongest, c: muted }
+    ];
+    var mx = Math.max.apply(null, rows.map(function (r) { return r.v; })) || 1;
+    bars.innerHTML = '<div class="label" style="margin-bottom:12px">' +
+      capsSafe("Weeks below " + d.threshold + "\u03C3 \u00B7 observed against the fitted mean reversion") + "</div>" +
+      rows.map(function (r) {
+        return '<div class="bar-row"><span>' + esc(r.k) + "</span>" +
+          '<span class="bar-track"><span class="bar-fill" style="width:' +
+          Math.max(1.5, (r.v / mx) * 100).toFixed(1) + "%;background:" + r.c + '"></span></span>' +
+          '<span class="bar-num">' + r.v + "w</span></div>";
+      }).join("");
+  } else {
+    bars.innerHTML = "";
+  }
+
+  document.getElementById("v-years").innerHTML = rec.rows.map(function (r) {
+    var cls = r.partial ? "yr partial" : r.held ? "yr held" : "yr broke";
+    var mark = r.partial ? "so far" : r.held ? "held" : "broke";
+    var worst = Math.abs(r.low) > Math.abs(r.high) ? r.low : r.high;
+    return '<div class="' + cls + '"><b>' + r.year + "</b>" + mark + "<br>" +
+      (worst >= 0 ? "+" : "\u2212") + Math.abs(worst).toFixed(1) + "\u03C3</div>";
+  }).join("");
+
+  var cond = a.conditional || [];
+  document.getElementById("cond-note").textContent = cond.length
+    ? "What the next 12 months looked like, given where the price sat \u2014 always against the channel frozen before it happened. Episodes, not weeks, are the sample size: the windows overlap heavily."
+    : "Not enough out-of-sample history for this asset to say what followed.";
+  document.getElementById("table-conditional").innerHTML = cond.length
+    ? "<thead><tr><th>Signal</th><th>Episodes</th><th>Weeks</th><th>Median 12m</th><th>Ended up</th><th>Back above \u22120.5<span class='nocaps'>\u03C3</span></th></tr></thead><tbody>" +
+      cond.map(function (b) {
+        return "<tr><td>" + esc(binLabel(b)) + "</td><td>" + b.episodes + "</td><td>" + b.weeks +
+          "</td><td>" + pct(b.median) + "</td><td>" + Math.round(b.up * 100) + "%</td><td>" +
+          Math.round(b.recovered * 100) + "%</td></tr>";
+      }).join("") + "</tbody>"
+    : "";
+}
+
 var pending = null;
 function schedule() {
   if (pending) return;
@@ -1220,6 +1384,7 @@ function render() {
   var v = view();
   renderHero(v);
   renderTiles(v);
+  renderVerdict(v);
   drawChannel(v);
   drawValue(v);
   drawSignal(v);
